@@ -40,6 +40,7 @@ from cleo.application import Application
 from cleo.testers.command_tester import CommandTester
 
 from rosenv.environment.run_command import CommandFailedError
+from rosenv.environment.distro import RosDistribution
 from tests.conftest import ROS_1
 from tests.conftest import get_ros_version
 from tests.integration.commands import create_cache_files_in_adder_project
@@ -59,18 +60,16 @@ def _get_adder_header_location(rosenv_target_path: Path) -> Path:
     return rosenv_target_path / "opt/ros/iron/include/adder/adder.h"
 
 
-def _get_adder_deb_name() -> str:
-    if get_ros_version() == ROS_1:
-        return "ros-noetic-adder_0.0.0-0focal_amd64.deb"
-
-    return "ros-iron-adder_0.0.0-0jammy_amd64.deb"
+@pytest.fixture
+def adder_deb_name(ros_distro: RosDistribution) -> str:
+    return f"ros-{ros_distro}-adder_0.0.0-0{'focal' if ros_distro == 'noetic' else 'jammy'}_amd64.deb"
 
 
-def build_and_install(app: Application, rosenv_target_path: Path, ros_workspace_path: Path, dist_path: Path) -> None:
+def build_and_install(app: Application, rosenv_target_path: Path, ros_workspace_path: Path, dist_path: Path, adder_deb_name: str) -> None:
     debian_folder_path = ros_workspace_path / "adder" / "debian"
     obj_cache_path = ros_workspace_path / "adder" / ".obj-x86_64-linux-gnu"
 
-    deb_name = _get_adder_deb_name()
+    deb_name = adder_deb_name
     packages_folder = rosenv_target_path / "rosenv/packages"
     assert not packages_folder.exists()
     header = _get_adder_header_location(rosenv_target_path)
@@ -93,11 +92,11 @@ def build_and_install(app: Application, rosenv_target_path: Path, ros_workspace_
     assert lib.exists()
 
 
-def build_and_install_overwrite(app: Application, rosenv_target_path: Path, dist_path: Path) -> None:
+def build_and_install_overwrite(app: Application, rosenv_target_path: Path, dist_path: Path, adder_deb_name: str) -> None:
     header = _get_adder_header_location(rosenv_target_path)
     assert header.exists()
     header_creation_timestamp = header.stat().st_ctime
-    build_artifact = dist_path / _get_adder_deb_name()
+    build_artifact = dist_path / adder_deb_name
     assert build_artifact.exists()
     artifact_creation_timestamp = build_artifact.stat().st_ctime
 
@@ -111,12 +110,12 @@ def build_and_install_overwrite(app: Application, rosenv_target_path: Path, dist
     assert artifact_recreate_timestamp > artifact_creation_timestamp
 
 
-def build_and_install_no_overwrite(app: Application, rosenv_target_path: Path, dist_path: Path) -> None:
+def build_and_install_no_overwrite(app: Application, rosenv_target_path: Path, dist_path: Path, adder_deb_name: str) -> None:
     dist_path = Path("dist")
     header = _get_adder_header_location(rosenv_target_path)
     assert header.exists()
     header_creation_timestamp = header.stat().st_ctime
-    build_artifact = dist_path / _get_adder_deb_name()
+    build_artifact = dist_path / adder_deb_name
     assert build_artifact.exists()
     artifact_creation_timestamp = build_artifact.stat().st_ctime
 
@@ -176,9 +175,10 @@ def test_install_should_install_workspace(
     run_mock: MagicMock,
     dist_path: Path,
     ros_workspace_path: Path,
+    adder_deb_name: str,
 ) -> None:
-    build_and_install(init_app, rosenv_target_path, ros_workspace_path, dist_path)
-    build_and_install_overwrite(init_app, rosenv_target_path, dist_path)
-    build_and_install_no_overwrite(init_app, rosenv_target_path, dist_path)
+    build_and_install(init_app, rosenv_target_path, ros_workspace_path, dist_path, adder_deb_name)
+    build_and_install_overwrite(init_app, rosenv_target_path, dist_path, adder_deb_name)
+    build_and_install_no_overwrite(init_app, rosenv_target_path, dist_path, adder_deb_name)
     build_and_install_fails(init_app, rosenv_target_path, run_mock, dist_path)
     build_and_install_can_fail(init_app, rosenv_target_path, run_mock, dist_path)

@@ -44,7 +44,8 @@ from rosenv.environment.distro import ROS2_DEFAULT_CONFIG
 from rosenv.environment.distro import DistroConfig
 from rosenv.environment.distro import RosDistribution
 from rosenv.environment.distro import get_installed_distro_paths
-
+from rosenv.environment.distro import parse_distro
+from rosenv.environment.distro import get_distro_config
 
 _T = TypeVar("_T")
 YieldFixture = Generator[_T, None, None]
@@ -64,18 +65,14 @@ def get_ros_version() -> Literal[1, 2]:
 
 @pytest.fixture()
 def ros_distro() -> RosDistribution:
-    if get_ros_version() == ROS_1:
-        return "noetic"
-
-    return "iron"
-
+    ros_name = get_installed_distro_paths()
+    if len(ros_name) == 0:
+        raise AssertionError
+    return parse_distro(ros_name[0].name)
 
 @pytest.fixture()
-def ros_distro_config() -> DistroConfig:
-    if get_ros_version() == ROS_1:
-        return ROS1_DEFAULT_CONFIG
-
-    return ROS2_DEFAULT_CONFIG
+def ros_distro_config(ros_distro: RosDistribution) -> DistroConfig:
+    return get_distro_config(ros_distro)
 
 
 @pytest.fixture()
